@@ -1,0 +1,191 @@
+/* ============================================
+   BOARD.CSS - Board & Cell Styles
+   ============================================ */
+
+/* ============================================
+   BOARD CONTAINER
+   ============================================ */
+
+.board-container {
+  perspective: 1000px;
+  margin-bottom: var(--space-lg);
+}
+
+/* ============================================
+   BOARD
+   ============================================ */
+
+.board {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+  gap: var(--space-sm);
+  width: min(340px, 90vw);
+  height: min(340px, 90vw);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  padding: var(--space-md);
+  backdrop-filter: blur(12px);
+  box-shadow: var(--shadow-lg),
+              inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  animation: boardAppear 0.6s ease-out;
+}
+
+/* ============================================
+   CELL
+   ============================================ */
+
+.cell {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: background var(--transition-fast),
+              border-color var(--transition-fast),
+              transform var(--transition-fast),
+              box-shadow var(--transition-fast);
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+
+.cell:hover:not(.cell-taken):not(.cell-disabled) {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.2);
+  transform: scale(1.05);
+}
+
+.cell:active:not(.cell-taken):not(.cell-disabled) {
+  transform: scale(0.95);
+}
+
+.cell:focus-visible {
+  outline: 2px solid var(--color-accent-purple);
+  outline-offset: 2px;
+}
+
+/* Cell States */
+.cell-taken {
+  cursor: default;
+}
+
+.cell-disabled {
+  cursor: default;
+  pointer-events: none;
+}
+
+/* Win highlight */
+.cell-win {
+  animation: winCellHighlight 0.6s ease-in-out infinite;
+}
+
+.cell-win-x {
+  border-color: var(--color-x);
+  box-shadow: 0 0 15px var(--color-x-glow),
+              inset 0 0 15px rgba(0, 212, 255, 0.1);
+}
+
+.cell-win-o {
+  border-color: var(--color-o);
+  box-shadow: 0 0 15px var(--color-o-glow),
+              inset 0 0 15px rgba(255, 107, 213, 0.1);
+}
+
+/* Staggered cell appearance */
+.cell:nth-child(1) { animation-delay: 0.05s; }
+.cell:nth-child(2) { animation-delay: 0.1s; }
+.cell:nth-child(3) { animation-delay: 0.15s; }
+.cell:nth-child(4) { animation-delay: 0.2s; }
+.cell:nth-child(5) { animation-delay: 0.25s; }
+.cell:nth-child(6) { animation-delay: 0.3s; }
+.cell:nth-child(7) { animation-delay: 0.35s; }
+.cell:nth-child(8) { animation-delay: 0.4s; }
+.cell:nth-child(9) { animation-delay: 0.45s; }
+
+/* ============================================
+   X MARK
+   ============================================ */
+
+.mark-x {
+  width: 60%;
+  height: 60%;
+  animation: xAppear 0.4s ease-out forwards;
+}
+
+.mark-x line {
+  stroke: var(--color-x);
+  stroke-width: 8;
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 6px var(--color-x-glow));
+}
+
+/* ============================================
+   O MARK
+   ============================================ */
+
+.mark-o {
+  width: 60%;
+  height: 60%;
+  animation: oAppear 0.4s ease-out forwards;
+}
+
+.mark-o circle {
+  stroke: var(--color-o);
+  stroke-width: 7;
+  fill: none;
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 6px var(--color-o-glow));
+}
+
+/* ============================================
+   DRAW STATE
+   ============================================ */
+
+.board.draw-state .cell {
+  animation: drawShake 0.4s ease-out;
+}
+
+.board.draw-state .cell:nth-child(odd) {
+  animation-delay: 0.05s;
+}
+
+/* ============================================
+   WIN STATE
+   ============================================ */
+
+.board.win-state .cell:not(.cell-win) {
+  opacity: 0.4;
+  transition: opacity 0.4s ease;
+}
+
+/* ============================================
+   RESTARTING STATE
+   ============================================ */
+
+.board.restarting {
+  animation: resetScale 0.3s ease-out;
+}
+
+/* ============================================
+   RESPONSIVE ADJUSTMENTS
+   ============================================ */
+
+@media (max-width: 400px) {
+  .board {
+    gap: 6px;
+    padding: var(--space-sm);
+  }
+
+  .mark-x line {
+    stroke-width: 6;
+  }
+
+  .mark-o circle {
+    stroke-width: 5;
+  }
+}
