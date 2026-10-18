@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Responsive Layout Test</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="../css/animations.css">
+  <link rel="stylesheet" href="../css/board.css">
+  <style>
+    body { margin: 0; }
+    .bg-aurora { display: none; }
+    .entering { animation: none !important; } /* measure final layout, not entrance transforms */
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="header">
+      <h1 class="title">Tic Tac Toe</h1>
+      <div class="scoreboard">
+        <div class="score-card score-x"><span class="score-label">X</span><span class="score-value" id="score-x">0</span></div>
+        <div class="score-card score-draw"><span class="score-label">Draws</span><span class="score-value" id="score-draw">0</span></div>
+        <div class="score-card score-o"><span class="score-label">O</span><span class="score-value" id="score-o">0</span></div>
+      </div>
+    </header>
+    <main class="main">
+      <div class="turn-indicator" id="turn-indicator">
+        <span class="turn-dot"></span>
+        <span class="turn-text">Your move, Player</span>
+        <span class="turn-player">X</span>
+      </div>
+      <div class="board-container" id="board-container">
+        <div class="board entering" id="board">
+          <button type="button" class="cell" data-index="0"></button>
+          <button type="button" class="cell" data-index="1"></button>
+          <button type="button" class="cell" data-index="2"></button>
+          <button type="button" class="cell" data-index="3"></button>
+          <button type="button" class="cell" data-index="4"></button>
+          <button type="button" class="cell" data-index="5"></button>
+          <button type="button" class="cell" data-index="6"></button>
+          <button type="button" class="cell" data-index="7"></button>
+          <button type="button" class="cell" data-index="8"></button>
+          <svg class="win-line" id="win-line" viewBox="0 0 100 100"></svg>
+        </div>
+      </div>
+      <div class="message-area" id="message-area"><p class="game-message"></p></div>
+      <div class="controls">
+        <button type="button" class="btn btn-restart" id="btn-restart"><span>New Game</span></button>
+        <button type="button" class="btn btn-reset-scores" id="btn-reset-scores"><span class="btn-text">Reset Scores</span></button>
+      </div>
+    </main>
+  </div>
+
+<script>
+  var results = [];
+  var failures = 0;
+
+  function check(ok, name) {
+    results.push((ok ? 'PASS' : 'FAIL') + '  ' + name);
+    if (!ok) failures++;
+  }
+
+  var vw = window.innerWidth;
+  var board = document.getElementById('board');
+  var bw = board.offsetWidth, bh = board.offsetHeight;
+
+  results.push('VIEWPORT ' + vw + 'x' + window.innerHeight + ' | board ' + bw.toFixed(1) + 'x' + bh.toFixed(1));
+
+  check(Math.abs(bw - bh) < 2, 'board is square');
+  check(bw <= vw, 'board fits viewport width');
+  check(document.documentElement.scrollWidth <= vw + 1,
+    'no horizontal overflow (scrollWidth=' + document.documentElement.scrollWidth +
+    ' <= innerWidth=' + vw + ')');
+
+  var cells = document.querySelectorAll('.cell');
+  var cellW = cells[0].getBoundingClientRect().width;
+  check(cellW >= 44, 'cells horizontally tappable (' + cellW.toFixed(1) + 'px >= 44px)');
+  check(cells[0].getBoundingClientRect().height.toFixed(1) - cellW.toFixed(1) < 2, 'cells square');
+
+  var btn = document.getElementById('btn-restart');
+  var btnH = btn.getBoundingClientRect().height;
+  check(btnH >= 44, 'buttons tappable height (' + btnH.toFixed(1) + 'px >= 44px)');
+
+  results.push(failures === 0 ? 'LAYOUT_OK' : failures + ' LAYOUT CHECKS FAILED');
+  var pre = document.createElement('pre');
+  pre.id = 'layout-report';
+  pre.textContent = results.join('\n');
+  document.body.appendChild(pre);
+  document.title = failures === 0 ? 'LAYOUT_OK' : 'LAYOUT_FAILED';
+</script>
+</body>
+</html>

@@ -1,78 +1,129 @@
 /* ============================================
-   ANIMATIONS.JS - Animation Triggers & Control
-   Handles all animation logic, separate from DOM rendering.
+   ANIMATIONS.JS - Visual Effects & Animation Control
+   Bridges CSS keyframes with game events.
    ============================================ */
 
 const Animations = (() => {
   const CONFETTI_COLORS = [
-    '#00d4ff', '#ff6bd5', '#b388ff', '#00e676',
-    '#ffd740', '#ff9100', '#ff5252', '#64ffda',
+    '#22e7ff', '#ff5fd0', '#a78bff', '#3dffab',
+    '#ffd166', '#ff9e5e', '#7b5cff', '#b14aff',
   ];
 
-  const CONFETTI_COUNT = 50;
+  const CONFETTI_COUNT = 60;
+
+  const reduceMotionQuery =
+    window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)');
+
+  function prefersReducedMotion() {
+    return !!(reduceMotionQuery && reduceMotionQuery.matches);
+  }
 
   function addClass(element, className) {
-    if (element) {
-      element.classList.add(className);
-    }
+    if (element) element.classList.add(className);
   }
 
   function removeClass(element, className) {
-    if (element) {
-      element.classList.remove(className);
-    }
+    if (element) element.classList.remove(className);
   }
 
-  function toggleClass(element, className, force) {
-    if (element) {
-      element.classList.toggle(className, force);
+  /**
+   * Play a one-shot CSS animation class on an element and run the
+   * callback when THAT element's animation ends. Child animationend
+   * events bubbling up to the element are ignored via the target check.
+   */
+  function runOneShotAnimation(element, className, onDone) {
+    if (!element) {
+      if (onDone) onDone();
+      return;
     }
+
+    if (prefersReducedMotion()) {
+      if (onDone) onDone();
+      return;
+    }
+
+    const finish = () => {
+      removeClass(element, className);
+      if (onDone) onDone();
+    };
+
+    const handler = (event) => {
+      if (event.target !== element) return;
+      element.removeEventListener('animationend', handler);
+      finish();
+    };
+
+    element.addEventListener('animationend', handler);
+    addClass(element, className);
   }
 
   function animateCellPress(cellElement) {
+    if (!cellElement) return;
+
+    if (prefersReducedMotion()) return;
+
     addClass(cellElement, 'animate-cell-press');
-    cellElement.addEventListener('animationend', () => {
-      removeClass(cellElement, 'animate-cell-press');
-    }, { once: true });
+    cellElement.addEventListener(
+      'animationend',
+      () => {
+        removeClass(cellElement, 'animate-cell-press');
+      },
+      { once: true }
+    );
   }
 
-  function animateMarkAppear(cellElement, player) {
-    const className = player === 'X' ? 'animate-x' : 'animate-o';
-    addClass(cellElement, className);
+  function animateMarkAppear(markElement, player) {
+    addClass(markElement, player === 'X' ? 'animate-x' : 'animate-o');
   }
 
-  function animateWinningCells(cellElements, player) {
-    const glowClass = player === 'X' ? 'cell-win-x' : 'cell-win-o';
-    cellElements.forEach((el, i) => {
-      setTimeout(() => {
-        addClass(el, 'cell-win');
-        addClass(el, glowClass);
-        addClass(el, 'animate-win-pulse');
-      }, i * 150);
-    });
+  function animateWinningMarks(markElements) {
+    markElements.forEach((el) => addClass(el, 'animate-win-pulse'));
   }
 
+  /**
+   * Trigger the shake effect on the board for a draw round.
+   * The shake runs on the cells (not the board), so a timeout is used
+   * instead of an animationend listener.
+   */
   function animateBoardDraw(boardElement) {
+    if (!boardElement) return;
+
     addClass(boardElement, 'draw-state');
-    boardElement.addEventListener('animationend', () => {
+
+    window.setTimeout(() => {
       removeClass(boardElement, 'draw-state');
-    }, { once: true });
+    }, 480);
   }
 
-  function animateBoardRestart(boardElement, callback) {
-    addClass(boardElement, 'restarting');
-    boardElement.addEventListener('animationend', () => {
-      removeClass(boardElement, 'restarting');
-      if (callback) callback();
-    }, { once: true });
+  /**
+   * Board restart: shrink to half opacity, then run the callback
+   * (clearing cells happens between the two phases).
+   */
+  function animateBoardRestart(boardElement, onCollapsed) {
+    if (!boardElement) {
+      if (onCollapsed) onCollapsed();
+      return;
+    }
+
+    runOneShotAnimation(boardElement, 'restarting', onCollapsed);
   }
 
-  function animateTurnIndicator(indicatorElement) {
-    addClass(indicatorElement, 'animate-turn-pulse');
+  function boardEnter(boardElement) {
+    runOneShotAnimation(boardElement, 'entering');
   }
 
-  function stopTurnIndicator(indicatorElement) {
-    removeClass(indicatorElement, 'animate-turn-pulse');
+  /**
+   * Staggered cell entrance: applies the stagger class and cleans it
+   * up once all nine ripple-in animations have finished.
+   */
+  function staggerCellsIn(boardElement) {
+    if (!boardElement) return;
+
+    addClass(boardElement, 'cells-enter');
+
+    window.setTimeout(() => {
+      removeClass(boardElement, 'cells-enter');
+    }, 950);
   }
 
   function showMessage(messageElement, text, type) {
@@ -89,54 +140,68 @@ const Animations = (() => {
     removeClass(messageElement, 'visible');
   }
 
+  function bumpScore(scoreElement) {
+    if (!scoreElement || prefersReducedMotion()) return;
+
+    addClass(scoreElement, 'score-bump');
+    scoreElement.addEventListener(
+      'animationend',
+      () => {
+        removeClass(scoreElement, 'score-bump');
+      },
+      { once: true }
+    );
+  }
+
   function spawnConfetti(containerElement) {
+    if (prefersReducedMotion()) return;
+
     for (let i = 0; i < CONFETTI_COUNT; i++) {
       const confetti = document.createElement('div');
       confetti.className = 'confetti';
 
       const color = CONFETTI_COLORS[Math.floor(Math.random() * CONFETTI_COLORS.length)];
       const left = Math.random() * 100;
-      const delay = Math.random() * 0.8;
-      const duration = 2 + Math.random() * 2;
-      const size = 6 + Math.random() * 8;
-      const rotation = Math.random() * 360;
+      const delay = Math.random() * 0.6;
+      const duration = 2.1 + Math.random() * 1.8;
+      const size = 5 + Math.random() * 8;
+      const drift = `${(Math.random() * 160 - 80).toFixed(0)}px`;
+      const borderRadius = Math.random() > 0.6 ? '50%' : '2px';
 
       confetti.style.cssText = `
         left: ${left}%;
         width: ${size}px;
-        height: ${size}px;
+        height: ${size + 2}px;
         background: ${color};
+        border-radius: ${borderRadius};
         animation-delay: ${delay}s;
         animation-duration: ${duration}s;
-        transform: rotate(${rotation}deg);
+        --drift: ${drift};
       `;
 
       containerElement.appendChild(confetti);
 
-      setTimeout(() => {
-        confetti.remove();
-      }, (delay + duration) * 1000 + 100);
+      window.setTimeout(
+        () => confetti.remove(),
+        (delay + duration) * 1000 + 150
+      );
     }
-  }
-
-  function clearConfetti(containerElement) {
-    containerElement.innerHTML = '';
   }
 
   return {
     addClass,
     removeClass,
-    toggleClass,
+    prefersReducedMotion,
     animateCellPress,
     animateMarkAppear,
-    animateWinningCells,
+    animateWinningMarks,
     animateBoardDraw,
     animateBoardRestart,
-    animateTurnIndicator,
-    stopTurnIndicator,
+    boardEnter,
+    staggerCellsIn,
+    bumpScore,
     showMessage,
     hideMessage,
     spawnConfetti,
-    clearConfetti,
   };
 })();

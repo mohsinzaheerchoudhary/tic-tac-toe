@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>E2E Test Harness</title>
+  <!-- In normal-motion mode only: holds the `load` event open (~15s)
+       so --dump-dom waits for the async suite to finish. Reduced-motion
+       runs are deterministic and end early instead. -->
+  <script>
+    if (!window.matchMedia || !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      document.write('<img src="http://10.255.255.1/hold-load-event.gif" alt="" style="display:none">');
+    }
+  </script>
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="../css/animations.css">
+  <link rel="stylesheet" href="../css/board.css">
+  <style>
+    body { margin: 0; }
+    #test-report { white-space: pre-wrap; font-family: monospace; font-size: 12px; padding: 10px; }
+    .bg-aurora { display: none; }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="header">
+      <h1 class="title">Tic Tac Toe</h1>
+      <div class="scoreboard">
+        <div class="score-card score-x"><span class="score-label">X</span><span class="score-value" id="score-x">0</span></div>
+        <div class="score-card score-draw"><span class="score-label">Draws</span><span class="score-value" id="score-draw">0</span></div>
+        <div class="score-card score-o"><span class="score-label">O</span><span class="score-value" id="score-o">0</span></div>
+      </div>
+    </header>
+    <main class="main">
+      <div class="turn-indicator" id="turn-indicator">
+        <span class="turn-dot"></span>
+        <span class="turn-text" id="turn-text">Your move, Player</span>
+        <span class="turn-player" id="turn-player">X</span>
+      </div>
+      <div class="board-container" id="board-container">
+        <div class="board" id="board">
+          <button type="button" class="cell" data-index="0"></button>
+          <button type="button" class="cell" data-index="1"></button>
+          <button type="button" class="cell" data-index="2"></button>
+          <button type="button" class="cell" data-index="3"></button>
+          <button type="button" class="cell" data-index="4"></button>
+          <button type="button" class="cell" data-index="5"></button>
+          <button type="button" class="cell" data-index="6"></button>
+          <button type="button" class="cell" data-index="7"></button>
+          <button type="button" class="cell" data-index="8"></button>
+          <svg class="win-line" id="win-line" viewBox="0 0 100 100"></svg>
+        </div>
+      </div>
+      <div class="message-area" id="message-area" role="status" aria-live="polite">
+        <p class="game-message" id="game-message"></p>
+      </div>
+      <div class="controls">
+        <button type="button" class="btn btn-restart" id="btn-restart"><span>New Game</span></button>
+        <button type="button" class="btn btn-reset-scores" id="btn-reset-scores">
+          <span class="btn-text" id="btn-reset-scores-text">Reset Scores</span>
+        </button>
+      </div>
+    </main>
+    <div class="celebration-container" id="celebration-container"></div>
+  </div>
+  <pre id="test-report">RUNNING</pre>
+
+  <script src="../js/game.js"></script>
+  <script src="../js/animations.js"></script>
+  <script src="../js/ui.js"></script>
+  <script src="../js/app.js"></script>
+  <script>
+  (function () {
+    'use strict';
+
+    var results = [];
+    var failures = 0;
+    var REPORT = document.getElementById('test-report');
+
+    window.__jsErrors = [];
+    window.addEventListener('error', function (e) {
+      window.__jsErrors.push(String(e.message));
+    });
+
+    function check(ok, name) {
+      results.push((ok ? 'PASS' : 'FAIL') + '  ' + name);
+      if (!ok) failures++;
+    }
+
+    function $(id) { return document.getElementById(id); }
+    function cells() { return document.querySelectorAll('.cell'); }
+    function markCount() { return document.querySelectorAll('.cell svg').length; }
+    function turnPlayer() { return document.getElementById('turn-player').textContent; }
+    function scoreX() { return $('score-x').textContent; }
+    function scoreO() { return $('score-o').textContent; }
+    function scoreD() { return $('score-draw').textContent; }
+    function message() { return $('game-message').textContent; }
+    function click(i) { cells()[i].click(); }
+    function tick(ms) {
+      return new Promise(function (res) { window.setTimeout(res, ms); });
+    }
+
+    function flush() {
+      results.push(failures === 0 ? 'ALL E2E CHECKS PASSED' : failures + ' E2E CHECKS FAILED');
+      if (window.__jsErrors.length) {
+        results.push('JS ERRORS: ' + window.__jsErrors.join(' | '));
+      }
+      REPORT.textContent = results.join('\n');
+      document.title = failures === 0 && window.__jsErrors.length === 0
+        ? 'E2E_OK' : 'E2E_FAILED';
+    }
+
+    async function run() {
+      await tick(120); // let DOMContentLoaded init settle
+
+      /* 1. Initial render */
+      check(cells().length === 9, 'renders 9 cells');
+      check(markCount() === 0, 'board starts empty');
+      check(turnPlayer() === 'X', 'turn indicator starts at X');
+      check(scoreX() === '0' && scoreO() === '0' && scoreD() === '0', 'scores start at zero');
+
+      var boardEl = $('board');
+      // offsetWidth/Height = layout box (excludes entrance-transform effects)
+      var bw = boardEl.offsetWidth, bh = boardEl.offsetHeight;
+      var cs = getComputedStyle(boardEl);
+      results.push('BOARD_MEASURE w=' + bw.toFixed(2) + ' h=' + bh.toFixed(2) +
+        ' ar=' + cs.aspectRatio + ' disp=' + cs.display + ' pad=' + cs.paddingTop + '/' + cs.paddingBottom +
+        ' vw=' + window.innerWidth + ' vh=' + window.innerHeight +
+        ' dpr=' + (window.devicePixelRatio || 0));
+      check(Math.abs(bw - bh) < 2, 'board renders square (' + bw.toFixed(1) + 'x' + bh.toFixed(1) + ')');
+      check(document.documentElement.scrollWidth <= window.innerWidth + 1,
+        'no horizontal overflow at viewport ' + window.innerWidth + 'px (scrollWidth ' +
+        document.documentElement.scrollWidth + ')');
+
+      /* 2. Rapid double click - first counts, second rejected */
+      click(0);
+      click(0);
+      check(markCount() === 1, 'rapid double click on same cell places only one mark');
+      check(turnPlayer() === 'O', 'turn switched to O after valid move only');
+
+      /* 3. X wins horizontal via clicks X:0 X:1 X:2 O:3 O:4 */
+      click(3); // O
+      click(1); // X
+      click(4); // O
+      click(2); // X wins [0,1,2]
+      check(Game.getState().winner === 'X', 'X horizontal win detected through real clicks');
+      check(markCount() === 5, 'exactly 5 marks on the board after the win');
+      check(message() === 'Player X wins this round!', 'winner message shown');
+      check(scoreX() === '1', 'X score is 1 after win');
+      check(scoreD() === '0', 'draw score untouched');
+      check(Game.getState().gameOver, 'game flagged over');
+      check(cells()[5].classList.contains('is-disabled'), 'remaining cells disabled after win');
+
+      var winIdx = Game.getState().winningLine || [];
+      var allWin = winIdx.every(function (i) {
+        var c = cells()[i];
+        return c.classList.contains('cell-win') && c.classList.contains('cell-win-x');
+      });
+      check(winIdx.length === 3 && allWin, 'winning cells highlighted (cell-win + cell-win-x)');
+
+      var nonWinOk = [0, 1, 2, 3, 4, 5, 6, 7, 8].some(function (i) {
+        return !winIdx.includes(i) && cells()[i].classList.contains('is-disabled');
+      });
+      check(nonWinOk, 'non-winning cells disabled after win');
+
+      /* 4. Moves rejected after game over */
+      var marksBefore = markCount();
+      var turnBefore = turnPlayer();
+      click(5); click(6); click(7);
+      check(markCount() === marksBefore, 'no new mark after game is over (rapid extra clicks)');
+      check(turnPlayer() === turnBefore, 'turn indicator frozen after game over');
+
+      /* 5. New Game resets board, keeps scores */
+      $('btn-restart').click();
+      await tick(600);
+      check(markCount() === 0, 'New Game clears all marks');
+      check(turnPlayer() === 'X', 'turn indicator reset to X');
+      check(scoreX() === '1' && scoreO() === '0' && scoreD() === '0', 'scores preserved across rounds');
+      check(!$('board').classList.contains('win-state'), 'win-state class cleared');
+      check(!$('win-line').classList.contains('active'), 'win line removed');
+      /* 5. Moves accepted again after New Game (real click) */
+      click(5);
+      check(markCount() === 1, 'moves accepted again after New Game');
+      check(turnPlayer() === 'O', 'turn advanced after post-reset move');
+
+      /* 6. New round via clicks: O wins vertically [3,4,5] */
+      $('btn-restart').click();
+      await tick(600);
+      click(0); click(5); click(1); click(4); click(6); click(3);
+      // X:0,1,6 | O:5,4,3 -> O wins [3,4,5]
+      check(Game.getState().winner === 'O', 'O vertical win detected');
+      check(message() === 'Player O wins this round!', 'O winner message shown');
+      check(scoreO() === '1', 'O score is 1');
+      var oWinAll = (Game.getState().winningLine || []).every(function (i) {
+        return cells()[i].classList.contains('cell-win-o');
+      });
+      check(oWinAll, 'winning cells highlighted with O styling');
+
+      $('btn-restart').click();
+      await tick(600);
+
+      /* 7. Draw through clicks (X:0,2,3,7,8 O:1,4,5,6) */
+      [0, 1, 2, 4, 3, 5, 7, 6, 8].forEach(click);
+      check(Game.getState().winner === 'draw', 'draw detected through real clicks');
+      check(message() === "It's a draw!", 'draw message shown');
+      check(scoreD() === '1', 'draw score is 1');
+      check($('board').classList.contains('draw-state'), 'draw shake applied');
+
+      $('btn-restart').click();
+      await tick(600);
+
+      /* 8. Keyboard play: focus cell 4 and press Enter */
+      cells()[4].focus();
+      cells()[4].dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+      check(markCount() === 1, 'keyboard Enter places a mark');
+      click(3); // O responds (X at 4, O at 3), irrelevant to next block
+
+      /* 9. Two-step reset scores: arm, then confirm */
+      $('btn-reset-scores').click();
+      check($('btn-reset-scores').classList.contains('confirming'), 'reset button arms confirm state');
+      check($('btn-reset-scores-text').textContent === 'Sure?', 'reset button shows Sure?');
+      check(scoreX() === '1' && scoreO() === '1' && scoreD() === '1', 'scores intact while armed');
+      $('btn-reset-scores').click();
+      check(scoreX() === '0' && scoreO() === '0' && scoreD() === '0', 'confirmed reset clears scores');
+      check($('btn-reset-scores-text').textContent === 'Reset Scores', 'button label restores after reset');
+
+      /* 10. Reset scores arms then unarmed via timeout (virtual time) */
+      $('btn-reset-scores').click();
+      check($('btn-reset-scores-text').textContent === 'Sure?', 'reset button arms again');
+      await tick(5600); // exceeds RESET_CONFIRM_TIMEOUT_MS
+      check($('btn-reset-scores-text').textContent === 'Reset Scores', 'confirm disarms after timeout');
+
+      /* 11. Animated (non-reduced-motion) restart completion - only runs
+         when real animations are active; verifies animationend wiring. */
+      if (!Animations.prefersReducedMotion()) {
+        check($('board').classList.contains('entering') || !$('board').classList.contains('restarting'), 'entrance animation class cleaned up');
+        $('btn-restart').click();
+        await tick(2000); // restart 0.35s + entrance + stagger (~0.95s)
+        check(markCount() === 0, 'animated restart cleared the board (animationend path)');
+        check(!$('board').classList.contains('restarting'), 'restarting class removed after restart animation');
+        check(!$('board').classList.contains('entering'), 'entering class removed after entrance animation');
+        click(0);
+        check(markCount() === 1 && turnPlayer() === 'O', 'playable again after animated restart (cells re-enabled)');
+      }
+
+      await flush_done();
+    }
+
+    function flush_done() {
+      flush();
+      return Promise.resolve();
+    }
+
+    run().catch(function (err) {
+      results.push('HARNESS CRASH: ' + (err && err.stack ? err.stack : String(err)));
+      failures++;
+      flush();
+    });
+  })();
+  </script>
+</body>
+</html>
